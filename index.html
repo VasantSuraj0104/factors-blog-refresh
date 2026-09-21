@@ -208,6 +208,17 @@ details.adv .adv-b{padding:4px 16px 16px;border-top:1px solid var(--border)}
 .link{color:var(--fg-2);text-decoration:underline;text-underline-offset:2px}
 .link:hover{color:var(--fg)}
 .sec{margin-top:28px}
+
+/* work modal */
+.overlay{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-start;justify-content:center;padding:56px 20px;overflow-y:auto}
+[data-theme="light"] .overlay{background:rgba(0,0,0,.35)}
+.overlay.hidden{display:none}
+.sheet{background:var(--surface);border:1px solid var(--border-hi);border-radius:var(--radius-lg);width:100%;max-width:760px;box-shadow:0 24px 70px rgba(0,0,0,.5);animation:sheetin .18s ease}
+@keyframes sheetin{from{opacity:0;transform:translateY(-8px) scale(.99)}to{opacity:1;transform:none}}
+.sheet .panel-h{position:relative}
+.sheet-x{position:absolute;top:14px;right:16px;width:30px;height:30px;border-radius:var(--radius);border:1px solid var(--border-hi);display:flex;align-items:center;justify-content:center;color:var(--fg-3);font-size:18px;line-height:1;transition:.13s}
+.sheet-x:hover{border-color:var(--border-focus);color:var(--fg)}
+@media(max-width:640px){.overlay{padding:0}.sheet{max-width:100%;min-height:100%;border-radius:0;border:0}}
 </style>
 </head>
 <body>
@@ -259,14 +270,16 @@ details.adv .adv-b{padding:4px 16px 16px;border-top:1px solid var(--border)}
     </div>
 
     <!-- work panel for the selected webinar -->
-    <div id="work" class="hidden sec">
-      <div class="panel">
+    <!-- config modal: opens when a webinar is picked -->
+    <div id="workOverlay" class="overlay hidden">
+      <div class="sheet">
         <div class="panel-h">
           <div>
             <div class="pt" id="wTitle"></div>
             <div class="ps" id="wMeta"></div>
           </div>
           <div class="chips" id="wChips"></div>
+          <button class="sheet-x" id="btnCloseWork" title="Close" aria-label="Close">&times;</button>
         </div>
         <div class="panel-b">
           <details class="adv" id="advPrompt">
@@ -300,8 +313,11 @@ details.adv .adv-b{padding:4px 16px 16px;border-top:1px solid var(--border)}
           <button class="btn btn-primary" id="btnRun">Run comparison</button>
         </div>
       </div>
+    </div>
 
-      <div id="runLoading" class="panel hidden" style="margin-top:16px">
+    <!-- loading + results render in the page -->
+    <div id="work" class="hidden sec">
+      <div id="runLoading" class="panel hidden">
         <div class="loading">
           <div class="lt" id="loadTitle">Comparing…</div>
           <div class="bar"><i id="loadBar"></i></div>
@@ -432,6 +448,8 @@ const badge = (v) => { const k = String(v || '').toLowerCase(); return `<span cl
 const scoreCell = (s, rec) => `<span class="score ${rec ? '' : 'dim'}">${esc(s)}/10 <i><b style="width:${Math.max(0, Math.min(10, Number(s) || 0)) * 10}%"></b></i></span>`;
 
 /* ---------- selected webinar ---------- */
+function openWork() { $('workOverlay').classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
+function closeWork() { $('workOverlay').classList.add('hidden'); document.body.style.overflow = ''; }
 function selectWebinar(url, keep) {
   const w = S.data.webinars.find(x => x.url === url); if (!w) return;
   S.selected = url; if (!keep) S.run = null;
@@ -445,8 +463,11 @@ function selectWebinar(url, keep) {
   if (S.run && S.run.webinar.url === url) renderResults(S.run, false);
   else if (prev.length) renderResults(fromRows(w, prev), true);
   else $('results').classList.add('hidden');
-  if (!keep) { const li = $('webinarList').querySelector('li.sel'); if (li) li.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+  if (!keep) openWork();   // clicking a webinar opens the config modal
 }
+$('btnCloseWork').onclick = closeWork;
+$('workOverlay').addEventListener('click', e => { if (e.target === $('workOverlay')) closeWork(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('workOverlay').classList.contains('hidden')) closeWork(); });
 function fromRows(w, rows) {
   return { webinar: { url: w.url, title: w.title, video_url: w.video_url }, run_at: rows[0].run_at || rows[0].evaluated_at, takeaways: null,
     config: S.data.config, stats: { evaluated: rows.length, recommended: rows.filter(r => r.recommended).length },
@@ -470,7 +491,9 @@ $('btnRun').onclick = async () => {
   if (sys && sys !== (d.evaluatorSystem || '').trim()) body.evaluatorSystem = sys;
   if (usr && usr !== (d.evaluatorUser || '').trim()) body.evaluatorUser = usr;
   const cached = (S.data.takeaways || []).some(t => t.webinar_url === w.url) && !body.force;
+  closeWork();   // leave the modal; results render in the page
   $('btnRun').disabled = true; $('results').classList.add('hidden'); $('runErr').classList.add('hidden'); $('runLoading').classList.remove('hidden');
+  $('work').scrollIntoView({ behavior: 'smooth', block: 'start' });
   S.ctrl = new AbortController(); const t0 = Date.now();
   const tick = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); $('loadTime').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
     const el = cached ? s + 80 : s; const step = STEPS.filter(x => x[0] <= el).pop(); $('loadStep').textContent = step[1]; $('loadBar').style.width = Math.min(92, 8 + el / 3.4) + '%'; }, 1000);
