@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Blog Refresh — Factors.ai</title>
 <meta name="description" content="Compare a webinar against every live blog post, get a rewrite/optimize verdict, and generate the brief."/>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20448%20448'%3E%3Cg%20transform='translate%2839%2C0%29'%20fill='%23fff'%3E%3Cpath%20d='M72.15%20302.84H184.96C184.96%20365.15%20134.45%20415.69%2072.15%20415.69V302.84Z'/%3E%3Cpath%20d='M72.15%20167.58H297.83C297.83%20229.9%20247.31%20280.42%20184.99%20280.42H72.15V167.58Z'/%3E%3C/g%3E%3C/svg%3E"/>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20448%20448'%3E%3Cg%20transform='translate%2839%2C0%29'%20fill='%23fff'%3E%3Cpath%20d='M72.15%20302.84H184.96C184.96%20365.15%20134.45%20415.69%2072.15%20415.69V302.84Z'/%3E%3Cpath%20d='M72.15%20167.58H297.83C297.83%20229.9%20247.31%20280.42%20184.99%20280.42H72.15V167.58Z'/%3E%3Cpath%20d='M72.15%20145.13C72.15%2082.81%20122.67%2032.29%20184.99%2032.29H297.83C297.83%2094.61%20247.31%20145.13%20184.99%20145.13H72.15Z'/%3E%3C/g%3E%3C/svg%3E"/>
 <meta name="theme-color" content="#000000"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -217,6 +217,7 @@ details.adv .adv-b{padding:4px 16px 16px;border-top:1px solid var(--border)}
     <svg class="logo" viewBox="0 0 370 448" xmlns="http://www.w3.org/2000/svg" aria-label="Factors">
       <path d="M72.15 302.84H184.96C184.96 365.15 134.45 415.69 72.15 415.69V302.84Z"/>
       <path d="M72.15 167.58H297.83C297.83 229.9 247.31 280.42 184.99 280.42H72.15V167.58Z"/>
+      <path d="M72.15 145.13C72.15 82.81 122.67 32.29 184.99 32.29H297.83C297.83 94.61 247.31 145.13 184.99 145.13H72.15Z"/>
     </svg>
     <div class="brand">Blog refresh<span>webinar → blog fit → rewrite or optimize</span></div>
     <div class="nav-r">
@@ -370,7 +371,9 @@ async function refreshData() {
   promptState();
   const m = d.meta || {}; const t = m.last_sync_at ? new Date(m.last_sync_at) : null;
   $('syncChip').textContent = t ? 'synced ' + rel(t) : 'never synced';
-  $('heroSub').textContent = d.webinars.length + ' webinars and ' + d.blogs.length + ' live blog posts' + (t ? ', updated ' + rel(t) : '') + '. Pick a webinar to start.';
+  const liveWebinars = d.webinars.filter(w => String(w.status || 'live') === 'live').length;
+  const liveBlogs = d.blogs.filter(b => String(b.status || 'live') === 'live').length;
+  $('heroSub').textContent = liveWebinars + ' webinars and ' + liveBlogs + ' live blog posts' + (t ? ', updated ' + rel(t) : '') + '. Pick a webinar to start.';
   renderList();
   if (S.selected) selectWebinar(S.selected, true);
 }
@@ -442,7 +445,7 @@ function selectWebinar(url, keep) {
   if (S.run && S.run.webinar.url === url) renderResults(S.run, false);
   else if (prev.length) renderResults(fromRows(w, prev), true);
   else $('results').classList.add('hidden');
-  if (!keep) $('work').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (!keep) { const li = $('webinarList').querySelector('li.sel'); if (li) li.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
 }
 function fromRows(w, rows) {
   return { webinar: { url: w.url, title: w.title, video_url: w.video_url }, run_at: rows[0].run_at || rows[0].evaluated_at, takeaways: null,
