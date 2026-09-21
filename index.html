@@ -323,7 +323,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 /* ---------- backend (edit these two lines when deploying) ---------- */
 const N8N_BASE = 'https://n8n-api.factors.app';       // your n8n instance, no trailing slash
-const ACCESS_KEY = 'PASTE_THE_accessKey_FROM_THE_CONFIG_NODE';
+const ACCESS_KEY = 'factors-refresh-a7Kp29mQ4vX8rL3nZ6wD1sB5tH0yE-secret';
 const LS = { prompt: 'refresh.prompt', theme: 'refresh.theme' };
 const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v === null || v === undefined ? d : v; } catch (e) { return d; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
