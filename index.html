@@ -209,16 +209,22 @@ details.adv .adv-b{padding:4px 16px 16px;border-top:1px solid var(--border)}
 .link:hover{color:var(--fg)}
 .sec{margin-top:28px}
 
-/* work modal */
-.overlay{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-start;justify-content:center;padding:56px 20px;overflow-y:auto}
-[data-theme="light"] .overlay{background:rgba(0,0,0,.35)}
+/* work modal — fixed to the viewport, centered, scrolls internally */
+.overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.66);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:grid;place-items:center;padding:24px}
+[data-theme="light"] .overlay{background:rgba(20,20,20,.42)}
 .overlay.hidden{display:none}
-.sheet{background:var(--surface);border:1px solid var(--border-hi);border-radius:var(--radius-lg);width:100%;max-width:760px;box-shadow:0 24px 70px rgba(0,0,0,.5);animation:sheetin .18s ease}
-@keyframes sheetin{from{opacity:0;transform:translateY(-8px) scale(.99)}to{opacity:1;transform:none}}
-.sheet .panel-h{position:relative}
-.sheet-x{position:absolute;top:14px;right:16px;width:30px;height:30px;border-radius:var(--radius);border:1px solid var(--border-hi);display:flex;align-items:center;justify-content:center;color:var(--fg-3);font-size:18px;line-height:1;transition:.13s}
-.sheet-x:hover{border-color:var(--border-focus);color:var(--fg)}
-@media(max-width:640px){.overlay{padding:0}.sheet{max-width:100%;min-height:100%;border-radius:0;border:0}}
+.sheet{background:var(--surface);border:1px solid var(--border-hi);border-radius:var(--radius-lg);width:min(760px,100%);max-height:calc(100vh - 48px);display:flex;flex-direction:column;box-shadow:0 30px 80px rgba(0,0,0,.6);overflow:hidden;animation:sheetin .16s ease}
+@keyframes sheetin{from{opacity:0;transform:translateY(6px) scale(.985)}to{opacity:1;transform:none}}
+.sheet-head{display:flex;align-items:flex-start;gap:14px;padding:20px 22px;border-bottom:1px solid var(--border);flex:0 0 auto}
+.sheet-title{min-width:0;flex:1}
+.sheet-title .pt{font-size:16px;font-weight:600;letter-spacing:-.012em;line-height:1.3}
+.sheet-title .ps{font-size:12.5px;color:var(--fg-3);margin-top:4px}
+.sheet-title .chips{margin-top:10px}
+.sheet-x{flex:0 0 auto;width:30px;height:30px;border-radius:var(--radius);border:1px solid var(--border-hi);display:flex;align-items:center;justify-content:center;color:var(--fg-3);font-size:20px;line-height:1;transition:.13s}
+.sheet-x:hover{border-color:var(--border-focus);color:var(--fg);background:var(--wash)}
+.sheet-body{padding:20px 22px;overflow-y:auto;flex:1 1 auto}
+.sheet-foot{display:flex;align-items:center;justify-content:flex-end;gap:14px;flex-wrap:wrap;padding:16px 22px;border-top:1px solid var(--border);background:var(--wash);flex:0 0 auto}
+@media(max-width:640px){.overlay{padding:0}.sheet{width:100%;height:100%;max-height:100%;border:0;border-radius:0}.sheet-foot{position:sticky;bottom:0}}
 </style>
 </head>
 <body>
@@ -271,50 +277,6 @@ details.adv .adv-b{padding:4px 16px 16px;border-top:1px solid var(--border)}
 
     <!-- work panel for the selected webinar -->
     <!-- config modal: opens when a webinar is picked -->
-    <div id="workOverlay" class="overlay hidden">
-      <div class="sheet">
-        <div class="panel-h">
-          <div>
-            <div class="pt" id="wTitle"></div>
-            <div class="ps" id="wMeta"></div>
-          </div>
-          <div class="chips" id="wChips"></div>
-          <button class="sheet-x" id="btnCloseWork" title="Close" aria-label="Close">&times;</button>
-        </div>
-        <div class="panel-b">
-          <details class="adv" id="advPrompt">
-            <summary>Comparison prompt <span class="saved" id="promptState"></span></summary>
-            <div class="adv-b">
-              <div class="row2" style="margin-top:12px">
-                <div>
-                  <label for="taSys">Rules and scoring (system prompt)</label>
-                  <textarea id="taSys" rows="14" spellcheck="false"></textarea>
-                </div>
-                <div>
-                  <label for="taUser">Per-blog template (user prompt)</label>
-                  <textarea id="taUser" rows="14" spellcheck="false"></textarea>
-                  <div class="help">Placeholders filled per blog: <span class="saved">{{takeaways}} {{url}} {{headings}} {{clean_body}}</span>. Keep the JSON shape or the parser cannot read the answer.</div>
-                </div>
-              </div>
-              <div style="display:flex;gap:10px;margin-top:12px;align-items:center">
-                <button class="btn btn-ghost btn-sm" id="btnPromptReset">Reset to workflow default</button>
-                <span class="saved">Edits are saved in this browser and sent with every run.</span>
-              </div>
-            </div>
-          </details>
-
-          <div class="opts" style="margin-top:16px">
-            <label>Evaluate top <input type="number" id="inEvalN" min="1" max="30" step="1"/> blogs</label>
-            <label><input type="checkbox" id="inForce"/> Re-extract takeaways (ignore cache)</label>
-          </div>
-        </div>
-        <div class="card-f">
-          <span class="saved" id="runHint"></span>
-          <button class="btn btn-primary" id="btnRun">Run comparison</button>
-        </div>
-      </div>
-    </div>
-
     <!-- loading + results render in the page -->
     <div id="work" class="hidden sec">
       <div id="runLoading" class="panel hidden">
@@ -332,6 +294,51 @@ details.adv .adv-b{padding:4px 16px 16px;border-top:1px solid var(--border)}
     </div>
   </section>
 </main>
+
+<!-- comparison config modal (top-level so it centers on the viewport) -->
+<div id="workOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div class="sheet-title">
+        <div class="pt" id="wTitle"></div>
+        <div class="ps" id="wMeta"></div>
+        <div class="chips" id="wChips"></div>
+      </div>
+      <button class="sheet-x" id="btnCloseWork" title="Close" aria-label="Close">&times;</button>
+    </div>
+    <div class="sheet-body">
+      <details class="adv" id="advPrompt">
+        <summary>Comparison prompt <span class="saved" id="promptState"></span></summary>
+        <div class="adv-b">
+          <div class="row2" style="margin-top:12px">
+            <div>
+              <label for="taSys">Rules and scoring (system prompt)</label>
+              <textarea id="taSys" rows="12" spellcheck="false"></textarea>
+            </div>
+            <div>
+              <label for="taUser">Per-blog template (user prompt)</label>
+              <textarea id="taUser" rows="12" spellcheck="false"></textarea>
+              <div class="help">Placeholders filled per blog: <span class="saved">{{takeaways}} {{url}} {{headings}} {{clean_body}}</span>. Keep the JSON shape or the parser cannot read the answer.</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:12px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" id="btnPromptReset">Reset to workflow default</button>
+            <span class="saved">Edits are saved in this browser and sent with every run.</span>
+          </div>
+        </div>
+      </details>
+
+      <div class="opts" style="margin-top:16px">
+        <label>Evaluate top <input type="number" id="inEvalN" min="1" max="30" step="1"/> blogs</label>
+        <label><input type="checkbox" id="inForce"/> Re-extract takeaways (ignore cache)</label>
+      </div>
+    </div>
+    <div class="sheet-foot">
+      <span class="saved" id="runHint"></span>
+      <button class="btn btn-primary" id="btnRun">Run comparison</button>
+    </div>
+  </div>
+</div>
 
 <script>
 (() => {
@@ -570,5 +577,6 @@ async function makeBrief(r, blogUrl, action) {
 refreshData().catch(e => showConnect(e.message));
 })();
 </script>
+
 </body>
 </html>
