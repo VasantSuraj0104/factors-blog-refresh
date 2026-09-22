@@ -576,17 +576,33 @@ function table(rows, r, actions) {
 /* ---------- brief ---------- */
 async function makeBrief(r, blogUrl, action) {
   if (S.briefBusy.has(blogUrl)) return;
-  S.briefBusy.add(blogUrl); renderResults(r, r.takeaways === null);
-  const box = document.createElement('div'); box.className = 'note'; box.style.marginTop = '16px'; box.innerHTML = `<span class="spin"></span> Writing the ${action} brief for <b>${esc((r.results.find(x => x.url === blogUrl) || {}).title || blogUrl)}</b>. It re-reads the blog, the takeaways and the ranking data, then writes a Google Doc. Usually 1–3 minutes.`;
-  $('results').before(box);
+  S.briefBusy.add(blogUrl);
+  // show a small status line above the results, inside the modal body — do NOT re-render results
+  let box = $('briefStatus');
+  if (!box) { box = document.createElement('div'); box.id = 'briefStatus'; box.style.margin = '0 0 16px'; const res = $('results'); res.parentNode.insertBefore(box, res); }
+  box.className = 'note';
+  const title = (r.results.find(x => x.url === blogUrl) || {}).title || blogUrl;
+  box.innerHTML = `<span class="spin"></span> Writing the ${esc(action)} brief for <b>${esc(title)}</b>. Re-reads the blog, takeaways and ranking, then writes a Google Doc. Usually 1–3 minutes.`;
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  // reflect busy state on just this row's buttons
+  document.querySelectorAll(`button[data-brief][data-url="${cssEsc(blogUrl)}"]`).forEach(b => { b.disabled = true; });
   try {
     const res = await call('refresh-brief', { webinarUrl: r.webinar.url, blogUrl, action }, { timeoutMs: 600000 });
     const x = r.results.find(y => y.url === blogUrl); if (x) { x.brief_url = res.documentUrl; x.brief_action = action; }
-    box.className = 'ok-box'; box.style.marginTop = '16px'; box.innerHTML = `<b>${esc(action[0].toUpperCase() + action.slice(1))} brief ready.</b> <a class="link" href="${esc(res.documentUrl)}" target="_blank" rel="noopener">${esc(res.title || 'Open the Google Doc')}</a>${res.summary ? '<br>' + esc(res.summary) : ''}`;
-    refreshData().catch(() => {});
-  } catch (e) { box.className = 'err'; box.innerHTML = '<b>Brief failed.</b> ' + esc(e.message); if (e.auth) showConnect(e.message); }
-  finally { S.briefBusy.delete(blogUrl); renderResults(r, r.takeaways === null); setTimeout(() => box.remove(), 60000); }
+    box.className = 'ok-box';
+    box.innerHTML = `<b>${esc(action[0].toUpperCase() + action.slice(1))} brief ready.</b> <a class="link" href="${esc(res.documentUrl)}" target="_blank" rel="noopener">${esc(res.title || 'Open the Google Doc')}</a>${res.summary ? '<br>' + esc(res.summary) : ''}`;
+    S.briefBusy.delete(blogUrl);
+    renderResults(r, r.takeaways == null);   // now safe: adds the "Open brief" link to the row
+    // move the status box back above results after re-render
+    const b2 = $('briefStatus'); if (b2) { const res2 = $('results'); res2.parentNode.insertBefore(b2, res2); }
+  } catch (e) {
+    S.briefBusy.delete(blogUrl);
+    box.className = 'err'; box.innerHTML = '<b>Brief failed.</b> ' + esc(e.message);
+    document.querySelectorAll(`button[data-brief][data-url="${cssEsc(blogUrl)}"]`).forEach(b => { b.disabled = false; });
+    if (e.auth) showConnect(e.message);
+  }
 }
+function cssEsc(s){ return String(s).replace(/["\\]/g, '\\$&'); }
 
 /* ---------- boot ---------- */
 refreshData().catch(e => showConnect(e.message));
