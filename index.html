@@ -213,7 +213,8 @@ details.adv .adv-b{padding:4px 16px 16px;border-top:1px solid var(--border)}
 .overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.66);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:grid;place-items:center;padding:24px}
 [data-theme="light"] .overlay{background:rgba(20,20,20,.42)}
 .overlay.hidden{display:none}
-.sheet{background:var(--surface);border:1px solid var(--border-hi);border-radius:var(--radius-lg);width:min(760px,100%);max-height:calc(100vh - 48px);display:flex;flex-direction:column;box-shadow:0 30px 80px rgba(0,0,0,.6);overflow:hidden;animation:sheetin .16s ease}
+.sheet{background:var(--surface);border:1px solid var(--border-hi);border-radius:var(--radius-lg);width:min(760px,100%);max-height:calc(100vh - 48px);display:flex;flex-direction:column;box-shadow:0 30px 80px rgba(0,0,0,.6);overflow:hidden;animation:sheetin .16s ease;transition:width .22s ease}
+.sheet.wide{width:min(1080px,100%)}
 @keyframes sheetin{from{opacity:0;transform:translateY(6px) scale(.985)}to{opacity:1;transform:none}}
 .sheet-head{display:flex;align-items:flex-start;gap:14px;padding:20px 22px;border-bottom:1px solid var(--border);flex:0 0 auto}
 .sheet-title{min-width:0;flex:1}
@@ -278,8 +279,50 @@ details.adv .adv-b{padding:4px 16px 16px;border-top:1px solid var(--border)}
     <!-- work panel for the selected webinar -->
     <!-- config modal: opens when a webinar is picked -->
     <!-- loading + results render in the page -->
-    <div id="work" class="hidden sec">
-      <div id="runLoading" class="panel hidden">
+  </section>
+</main>
+
+<!-- comparison config modal (top-level so it centers on the viewport) -->
+<div id="workOverlay" class="overlay hidden">
+  <div class="sheet" id="sheet">
+    <div class="sheet-head">
+      <div class="sheet-title">
+        <div class="pt" id="wTitle"></div>
+        <div class="ps" id="wMeta"></div>
+        <div class="chips" id="wChips"></div>
+      </div>
+      <button class="sheet-x" id="btnCloseWork" title="Close" aria-label="Close">&times;</button>
+    </div>
+    <div class="sheet-body" id="sheet-body">
+      <div id="workConfig">
+        <details class="adv" id="advPrompt">
+          <summary>Comparison prompt <span class="saved" id="promptState"></span></summary>
+          <div class="adv-b">
+            <div class="row2" style="margin-top:12px">
+              <div>
+                <label for="taSys">Rules and scoring (system prompt)</label>
+                <textarea id="taSys" rows="12" spellcheck="false"></textarea>
+              </div>
+              <div>
+                <label for="taUser">Per-blog template (user prompt)</label>
+                <textarea id="taUser" rows="12" spellcheck="false"></textarea>
+                <div class="help">Placeholders filled per blog: <span class="saved">{{takeaways}} {{url}} {{headings}} {{clean_body}}</span>. Keep the JSON shape or the parser cannot read the answer.</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:12px;align-items:center;flex-wrap:wrap">
+              <button class="btn btn-ghost btn-sm" id="btnPromptReset">Reset to workflow default</button>
+              <span class="saved">Edits are saved in this browser and sent with every run.</span>
+            </div>
+          </div>
+        </details>
+
+        <div class="opts" style="margin-top:16px">
+          <label>Evaluate top <input type="number" id="inEvalN" min="1" max="30" step="1"/> blogs</label>
+          <label><input type="checkbox" id="inForce"/> Re-extract takeaways (ignore cache)</label>
+        </div>
+      </div>
+
+      <div id="runLoading" class="hidden">
         <div class="loading">
           <div class="lt" id="loadTitle">Comparing…</div>
           <div class="bar"><i id="loadBar"></i></div>
@@ -289,52 +332,11 @@ details.adv .adv-b{padding:4px 16px 16px;border-top:1px solid var(--border)}
         </div>
       </div>
       <div id="runErr" class="err hidden"></div>
-
       <div id="results" class="hidden"></div>
     </div>
-  </section>
-</main>
-
-<!-- comparison config modal (top-level so it centers on the viewport) -->
-<div id="workOverlay" class="overlay hidden">
-  <div class="sheet">
-    <div class="sheet-head">
-      <div class="sheet-title">
-        <div class="pt" id="wTitle"></div>
-        <div class="ps" id="wMeta"></div>
-        <div class="chips" id="wChips"></div>
-      </div>
-      <button class="sheet-x" id="btnCloseWork" title="Close" aria-label="Close">&times;</button>
-    </div>
-    <div class="sheet-body">
-      <details class="adv" id="advPrompt">
-        <summary>Comparison prompt <span class="saved" id="promptState"></span></summary>
-        <div class="adv-b">
-          <div class="row2" style="margin-top:12px">
-            <div>
-              <label for="taSys">Rules and scoring (system prompt)</label>
-              <textarea id="taSys" rows="12" spellcheck="false"></textarea>
-            </div>
-            <div>
-              <label for="taUser">Per-blog template (user prompt)</label>
-              <textarea id="taUser" rows="12" spellcheck="false"></textarea>
-              <div class="help">Placeholders filled per blog: <span class="saved">{{takeaways}} {{url}} {{headings}} {{clean_body}}</span>. Keep the JSON shape or the parser cannot read the answer.</div>
-            </div>
-          </div>
-          <div style="display:flex;gap:10px;margin-top:12px;align-items:center;flex-wrap:wrap">
-            <button class="btn btn-ghost btn-sm" id="btnPromptReset">Reset to workflow default</button>
-            <span class="saved">Edits are saved in this browser and sent with every run.</span>
-          </div>
-        </div>
-      </details>
-
-      <div class="opts" style="margin-top:16px">
-        <label>Evaluate top <input type="number" id="inEvalN" min="1" max="30" step="1"/> blogs</label>
-        <label><input type="checkbox" id="inForce"/> Re-extract takeaways (ignore cache)</label>
-      </div>
-    </div>
-    <div class="sheet-foot">
+    <div class="sheet-foot" id="workFoot">
       <span class="saved" id="runHint"></span>
+      <button class="btn btn-ghost" id="btnBack" style="display:none">&larr; Back</button>
       <button class="btn btn-primary" id="btnRun">Run comparison</button>
     </div>
   </div>
@@ -366,7 +368,7 @@ async function call(path, body, { timeoutMs = 60000, signal } = {}) {
   if (signal) signal.addEventListener('abort', () => ctrl.abort('cancelled'));
   try {
     const res = await fetch(S.base.replace(/\/+$/, '') + '/webhook/' + path, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctrl.signal,
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, signal: ctrl.signal,
       body: JSON.stringify({ accessKey: S.key, ...body }) });
     const text = await res.text(); let json = null; try { json = JSON.parse(text); } catch (e) {}
     if (res.status === 401) throw Object.assign(new Error('The workflow rejected the access key. ACCESS_KEY in index.html must match accessKey in the Config node.'), { auth: true });
@@ -456,23 +458,34 @@ const scoreCell = (s, rec) => `<span class="score ${rec ? '' : 'dim'}">${esc(s)}
 
 /* ---------- selected webinar ---------- */
 function openWork() { $('workOverlay').classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
-function closeWork() { $('workOverlay').classList.add('hidden'); document.body.style.overflow = ''; }
+function closeWork() { $('workOverlay').classList.add('hidden'); document.body.style.overflow = ''; if (S.ctrl) S.ctrl.abort('cancelled'); }
+// modal has two views: the config form, and the run (loading + results)
+function showConfig() {
+  $('workConfig').classList.remove('hidden'); $('runLoading').classList.add('hidden'); $('results').classList.add('hidden'); $('runErr').classList.add('hidden');
+  $('sheet').classList.remove('wide'); $('btnBack').style.display = 'none'; $('btnRun').style.display = '';
+  $('runHint').style.display = '';
+}
+function showRunning() {
+  $('workConfig').classList.add('hidden'); $('btnRun').style.display = 'none'; $('runHint').style.display = 'none';
+  $('sheet').classList.add('wide'); $('btnBack').style.display = '';
+}
 function selectWebinar(url, keep) {
   const w = S.data.webinars.find(x => x.url === url); if (!w) return;
   S.selected = url; if (!keep) S.run = null;
-  renderList(); $('work').classList.remove('hidden');
+  renderList();
   $('wTitle').textContent = w.title || w.slug;
   $('wMeta').innerHTML = [w.guest ? esc(w.guest) : '', w.published_date ? esc(fmtDate(w.published_date)) : '', `<a class="link" href="${esc(w.video_url || w.url)}" target="_blank" rel="noopener">watch on YouTube</a>`].filter(Boolean).join(' · ');
   const tk = (S.data.takeaways || []).find(t => t.webinar_url === url); const prev = resultsForWebinar(url);
   $('wChips').innerHTML = (tk ? `<span class="chip">takeaways cached (${esc(tk.source)}, ${esc(fmtDate(tk.created_at))})</span>` : `<span class="chip">no takeaways yet</span>`) + (prev.length ? `<span class="chip">last compared ${esc(fmtDate(prev[0].run_at || prev[0].evaluated_at))}</span>` : '');
   $('runHint').textContent = tk ? 'Takeaways are cached; the run skips the transcript unless you re-extract.' : 'First run fetches the transcript and extracts takeaways.';
-  $('runErr').classList.add('hidden');
-  if (S.run && S.run.webinar.url === url) renderResults(S.run, false);
-  else if (prev.length) renderResults(fromRows(w, prev), true);
-  else $('results').classList.add('hidden');
-  if (!keep) openWork();   // clicking a webinar opens the config modal
+  showConfig();
+  // if there are prior results, show them straight away (still inside the modal)
+  if (S.run && S.run.webinar.url === url) { renderResults(S.run, false); showRunning(); }
+  else if (prev.length) { renderResults(fromRows(w, prev), true); showRunning(); }
+  if (!keep) openWork();
 }
 $('btnCloseWork').onclick = closeWork;
+$('btnBack').onclick = showConfig;
 $('workOverlay').addEventListener('click', e => { if (e.target === $('workOverlay')) closeWork(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('workOverlay').classList.contains('hidden')) closeWork(); });
 function fromRows(w, rows) {
@@ -492,15 +505,17 @@ $('btnPromptReset').onclick = () => { $('taSys').value = S.data.config.evaluator
 const STEPS = [[0, 'fetching the YouTube transcript'], [40, 'extracting takeaways'], [80, 'shortlisting blog posts'], [110, 'evaluating each post'], [200, 'checking rankings'], [260, 'writing results']];
 $('btnRun').onclick = async () => {
   if (!S.selected) return;
+  if (S.running) return;   // already comparing — ignore double clicks
+  S.running = true;
   const w = S.data.webinars.find(x => x.url === S.selected);
   const body = { webinarUrl: w.url, evalN: Number($('inEvalN').value) || undefined, force: $('inForce').checked };
   const d = S.data.config; const sys = $('taSys').value.trim(), usr = $('taUser').value.trim();
   if (sys && sys !== (d.evaluatorSystem || '').trim()) body.evaluatorSystem = sys;
   if (usr && usr !== (d.evaluatorUser || '').trim()) body.evaluatorUser = usr;
   const cached = (S.data.takeaways || []).some(t => t.webinar_url === w.url) && !body.force;
-  closeWork();   // leave the modal; results render in the page
+  showRunning();
   $('btnRun').disabled = true; $('results').classList.add('hidden'); $('runErr').classList.add('hidden'); $('runLoading').classList.remove('hidden');
-  $('work').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('sheet-body') && ($('sheet-body').scrollTop = 0);
   S.ctrl = new AbortController(); const t0 = Date.now();
   const tick = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); $('loadTime').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
     const el = cached ? s + 80 : s; const step = STEPS.filter(x => x[0] <= el).pop(); $('loadStep').textContent = step[1]; $('loadBar').style.width = Math.min(92, 8 + el / 3.4) + '%'; }, 1000);
@@ -511,7 +526,7 @@ $('btnRun').onclick = async () => {
     S.run = r; $('loadBar').style.width = '100%'; renderResults(r, false);
     refreshData().catch(() => {});
   } catch (e) { $('runErr').innerHTML = '<b>Comparison failed.</b> ' + esc(e.message); $('runErr').classList.remove('hidden'); if (e.auth) showConnect(e.message); }
-  finally { clearInterval(tick); $('runLoading').classList.add('hidden'); $('btnRun').disabled = false; S.ctrl = null; }
+  finally { clearInterval(tick); $('runLoading').classList.add('hidden'); $('btnRun').disabled = false; S.ctrl = null; S.running = false; }
 };
 $('btnCancel').onclick = () => S.ctrl && S.ctrl.abort('cancelled');
 function attachBriefs(r) { for (const x of r.results) { const prev = (S.data.results || []).find(p => p.webinar_url === r.webinar.url && p.blog_url === x.url && p.brief_url); if (prev) { x.brief_url = prev.brief_url; x.brief_action = prev.brief_action; } } }
