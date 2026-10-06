@@ -489,10 +489,11 @@ function selectWebinar(url, keep) {
   S.selected = url; if (!keep) S.run = null;
   renderList();
   $('wTitle').textContent = w.title || w.slug;
-  $('wMeta').innerHTML = [w.guest ? esc(w.guest) : '', w.published_date ? esc(fmtDate(w.published_date)) : '', `<a class="link" href="${esc(w.video_url || w.url)}" target="_blank" rel="noopener">watch on YouTube</a>`].filter(Boolean).join(' · ');
+  const isBp = String(w.status || '') === 'blueprint';
+  $('wMeta').innerHTML = [w.guest ? esc(w.guest) : '', w.published_date ? esc(fmtDate(w.published_date)) : '', `<a class="link" href="${esc(w.video_url || w.url)}" target="_blank" rel="noopener">${isBp ? 'open the report (PDF)' : 'watch on YouTube'}</a>`].filter(Boolean).join(' · ');
   const tk = (S.data.takeaways || []).find(t => t.webinar_url === url); const prev = resultsForWebinar(url);
   $('wChips').innerHTML = (tk ? `<span class="chip">takeaways cached (${esc(tk.source)}, ${esc(fmtDate(tk.created_at))})</span>` : `<span class="chip">no takeaways yet</span>`) + (prev.length ? `<span class="chip">last compared ${esc(fmtDate(prev[0].run_at || prev[0].evaluated_at))}</span>` : '');
-  $('runHint').textContent = tk ? 'Takeaways are cached; the run skips the transcript unless you re-extract.' : 'First run fetches the transcript and extracts takeaways.';
+  $('runHint').textContent = isBp ? 'Compares the 2026 report against your blogs.' : (tk ? 'Takeaways are cached; the run skips the transcript unless you re-extract.' : 'First run fetches the transcript and extracts takeaways.');
   showConfig();
   // if there are prior results, show them straight away (still inside the modal)
   if (S.run && S.run.webinar.url === url) { renderResults(S.run, false); showRunning(); }
