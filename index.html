@@ -420,25 +420,13 @@ function toast(msg, bad) { const el = document.createElement('div'); el.classNam
 document.querySelectorAll('.seg [data-tab]').forEach(b => b.onclick = () => { document.querySelectorAll('.seg [data-tab]').forEach(x => x.classList.toggle('on', x === b)); S.tab = b.dataset.tab; renderList(); });
 $('inSearch').oninput = (e) => { S.q = e.target.value.toLowerCase().trim(); renderList(); };
 
-function latestResultsByBlog() { const m = new Map(); for (const r of (S.data.results || [])) { const p = m.get(r.blog_url); if (!p || String(r.evaluated_at) > String(p.evaluated_at)) m.set(r.blog_url, r); } return m; }
+function latestResultsByBlog() { const m = new Map(); for (const r of (S.data.results || []).filter(r => !isBpResult(r))) { const p = m.get(r.blog_url); if (!p || String(r.evaluated_at) > String(p.evaluated_at)) m.set(r.blog_url, r); } return m; }
 function resultsForWebinar(url) { const rows = (S.data.results || []).filter(r => r.webinar_url === url); if (!rows.length) return []; const latest = rows.reduce((a, r) => String(r.run_at || r.evaluated_at) > a ? String(r.run_at || r.evaluated_at) : a, ''); return rows.filter(r => String(r.run_at || r.evaluated_at) === latest); }
 
 function renderList() {
   const q = S.q; const hit = (s) => !q || String(s || '').toLowerCase().includes(q);
   const wl = $('webinarList'), bt = $('blogTable'), em = $('listEmpty');
-  if (S.tab === 'blueprint') {
-    bt.classList.add('hidden'); wl.classList.remove('hidden');
-    const items = S.data.webinars.filter(w => String(w.status || '') === 'blueprint');
-    $('listCount').textContent = items.length + ' report' + (items.length === 1 ? '' : 's');
-    wl.innerHTML = items.length ? items.map(w => { const rs = resultsForWebinar(w.url); const tk = (S.data.takeaways || []).find(t => t.webinar_url === w.url);
-      return `<li data-url="${esc(w.url)}" class="${S.selected === w.url ? 'sel' : ''}">
-        <div><div class="t">${esc(w.title || w.slug)}</div><div class="m"><span>2026 report</span>${tk ? '<span>' + tk.count + ' takeaways</span>' : '<span>not prepared yet</span>'}</div></div>
-        <div class="r">${rs.length ? '<span class="chip ok">' + rs.filter(r => r.recommended).length + ' of ' + rs.length + ' fit</span>' : ''}</div></li>`; }).join('') : '';
-    wl.querySelectorAll('li').forEach(li => li.onclick = () => selectWebinar(li.dataset.url));
-    em.classList.toggle('hidden', items.length > 0);
-    em.innerHTML = '<b>Blueprint not prepared yet.</b><br>Run the one-time setup: <span class="saved">POST /webhook/refresh-blueprint</span> with your access key, then refresh.';
-    return;
-  }
+  if (S.tab === 'blueprint') { renderBlueprint(); return; }
   if (S.tab === 'webinars') {
 
     bt.classList.add('hidden'); wl.classList.remove('hidden');
@@ -458,13 +446,14 @@ function renderList() {
     const items = S.data.blogs.filter(b => String(b.status || 'live') === 'live').filter(b => hit(b.title) || hit((b.headings || []).join(' ')) || hit(b.target_keyword))
       .sort((a, b) => String(b.published_date || b.first_seen) > String(a.published_date || a.first_seen) ? 1 : -1);
     $('listCount').textContent = items.length + ' / ' + S.data.blogs.length;
-    bt.innerHTML = items.length ? `<table class="tbl"><thead><tr><th>Blog</th><th>Published</th><th>Words</th><th>Latest fit</th><th>Verdict</th><th></th></tr></thead><tbody>` +
+    bt.innerHTML = items.length ? `<table class="tbl"><thead><tr><th>Blog</th><th>Published</th><th>Words</th><th>Latest fit</th><th>Verdict</th><th></th><th>Blueprint</th></tr></thead><tbody>` +
       items.map(b => { const r = latest.get(b.url); return `<tr><td><div class="bt">${esc(b.title || b.slug)}</div><div class="bu"><a href="${esc(b.url)}" target="_blank" rel="noopener">${esc(b.url.replace(/^https?:\/\/(www\.)?/, ''))}</a>${b.target_keyword ? ' · kw: ' + esc(b.target_keyword) : ''}</div></td>
         <td class="rank">${esc(fmtDate(b.published_date))}</td><td class="rank">${esc(b.word_count || '')}</td>
         <td>${r ? scoreCell(r.score, r.recommended) : '<span class="badge na">not evaluated</span>'}</td>
         <td>${r ? badge(r.verdict) : ''}</td>
-        <td class="rank">${r && r.brief_url ? '<a class="link" href="' + esc(r.brief_url) + '" target="_blank" rel="noopener">brief</a>' : ''}</td></tr>`; }).join('') + '</tbody></table>' : '';
+        <td class="rank">${r && r.brief_url ? '<a class="link" href="' + esc(r.brief_url) + '" target="_blank" rel="noopener">brief</a>' : ''}</td><td>${bpCell(b)}</td></tr>`; }).join('') + '</tbody></table>' : '';
     em.classList.toggle('hidden', items.length > 0);
+    bt.querySelectorAll('button[data-bp]').forEach(x => x.onclick = () => runBlueprintEval(x.dataset.bp));
     em.innerHTML = S.data.blogs.length ? 'No blogs match that search.' : '<b>No blogs yet.</b><br>Press Sync now to scan factors.ai/blog.';
   }
 }
@@ -619,6 +608,89 @@ async function makeBrief(r, blogUrl, action) {
   }
 }
 function cssEsc(s){ return String(s).replace(/["\\]/g, '\\$&'); }
+
+/* ---------- blueprint: one blog at a time ---------- */
+const bpBusy = new Set(), bpBriefBusy = new Set();
+const sameUrl = (a, b) => String(a || '').trim().replace(/\/+$/, '').toLowerCase() === String(b || '').trim().replace(/\/+$/, '').toLowerCase();
+function bpWebinar() { return ((S.data && S.data.webinars) || []).find(w => String(w.status || '') === 'blueprint') || null; }
+function isBpResult(r) { const bp = bpWebinar(); return !!bp && sameUrl(r.webinar_url, bp.url); }
+function isBpEval(r) { return isBpResult(r) && r.matches && !Array.isArray(r.matches) && r.matches.v === 'blueprint'; }
+function bpResults() { const m = new Map(); for (const r of ((S.data && S.data.results) || [])) { if (!isBpEval(r)) continue; const p = m.get(r.blog_url); if (!p || String(r.evaluated_at) > String(p.evaluated_at)) m.set(r.blog_url, r); } return [...m.values()]; }
+function bpResultFor(blogUrl) { return bpResults().find(r => sameUrl(r.blog_url, blogUrl)) || null; }
+function upsertResult(row) { if (!row || !row.key) return; const arr = S.data.results || (S.data.results = []); const i = arr.findIndex(r => r.key === row.key); if (i >= 0) arr[i] = row; else arr.push(row); }
+
+function bpCell(b) {
+  if (!bpWebinar()) return '<span class="saved">blueprint not set up</span>';
+  if (bpBusy.has(b.url)) return '<button class="btn btn-sm btn-ghost" disabled><span class="spin"></span> Comparing</button>';
+  const r = bpResultFor(b.url);
+  const chip = r ? `<span class="chip ${r.recommended ? 'ok' : ''}" title="${esc(r.reason || '')}">${r.recommended ? 'worth it' : 'not worth it'} · ${esc(r.score)}/10</span>` : '';
+  return `<div class="act" style="justify-content:flex-start">${chip}<button class="btn btn-sm btn-ghost" data-bp="${esc(b.url)}">${r ? 'Re-check' : 'Compare with blueprint'}</button></div>`;
+}
+
+async function runBlueprintEval(blogUrl) {
+  if (bpBusy.has(blogUrl)) return;
+  if (!bpWebinar()) { toast('The blueprint is not set up yet. Run the one-time blueprint setup first.', true); return; }
+  const blog = (S.data.blogs || []).find(b => b.url === blogUrl) || {};
+  const title = blog.title || blogUrl;
+  bpBusy.add(blogUrl); renderList();
+  try {
+    const res = await call('refresh-blueprint-eval', { blogUrl }, { timeoutMs: 300000 });
+    upsertResult(res.row);
+    toast('"' + title + '": ' + (res.row.recommended ? 'worth refreshing' : 'not worth refreshing') + ' (' + res.row.score + '/10). Full reasoning is in the Blueprint tab.');
+  } catch (e) { toast('Blueprint check failed for "' + title + '": ' + e.message, true); if (e.auth) showConnect(e.message); }
+  finally { bpBusy.delete(blogUrl); renderList(); }
+}
+
+function renderBlueprint() {
+  const wl = $('webinarList'), bt = $('blogTable'), em = $('listEmpty');
+  wl.classList.add('hidden'); bt.classList.remove('hidden');
+  if (!bpWebinar()) { bt.innerHTML = ''; $('listCount').textContent = ''; em.classList.remove('hidden');
+    em.innerHTML = '<b>Blueprint not set up yet.</b><br>Run the one-time setup: <span class="saved">POST /webhook/refresh-blueprint</span>, then reload.'; return; }
+  const q = S.q; const hit = (s) => !q || String(s || '').toLowerCase().includes(q);
+  const all = bpResults();
+  const items = all.filter(r => hit(r.blog_title) || hit(r.blog_url)).sort((a, b) => (Number(b.recommended) - Number(a.recommended)) || (Number(b.score) - Number(a.score)));
+  $('listCount').textContent = all.length + ' compared · ' + all.filter(r => r.recommended).length + ' worth it';
+  if (!items.length) { bt.innerHTML = ''; em.classList.remove('hidden');
+    em.innerHTML = all.length ? 'No compared blogs match that search.' : '<b>No blogs compared yet.</b><br>Open the Blogs tab and press <b>Compare with blueprint</b> on any post. It will show up here.'; return; }
+  em.classList.add('hidden');
+  bt.innerHTML = `<table class="tbl"><thead><tr><th>Blog</th><th>Blueprint fit</th><th>Rank</th><th>Verdict</th><th></th></tr></thead><tbody>` + items.map(bpRowHtml).join('') + '</tbody></table>';
+  bt.querySelectorAll('tr.row').forEach(tr => tr.onclick = (e) => { if (e.target.closest('button,a')) return; const d = tr.nextElementSibling; d.classList.toggle('hidden'); tr.classList.toggle('exp', !d.classList.contains('hidden')); });
+  bt.querySelectorAll('button[data-bp]').forEach(x => x.onclick = () => runBlueprintEval(x.dataset.bp));
+  bt.querySelectorAll('button[data-bpbrief]').forEach(x => x.onclick = () => bpBrief(x.dataset.url, x.dataset.bpbrief));
+}
+
+function bpRowHtml(r) {
+  const m = r.matches || {}; const pos = r.position === null || r.position === undefined || r.position === '' ? null : Number(r.position);
+  const v = String(r.verdict || '').toLowerCase(); const busy = bpBriefBusy.has(r.blog_url); const rbusy = bpBusy.has(r.blog_url);
+  const briefBtn = (kind) => `<button class="btn btn-sm ${v === kind ? 'btn-primary' : 'btn-ghost'}" data-bpbrief="${kind}" data-url="${esc(r.blog_url)}" ${busy ? 'disabled' : ''}>${busy ? '<span class="spin"></span>' : ''}${kind === 'rewrite' ? 'Rewrite brief' : 'Optimize brief'}</button>`;
+  const list = (arr) => Array.isArray(arr) && arr.length ? '<ul>' + arr.map(s => '<li>' + esc(s) + '</li>').join('') + '</ul>' : '<span class="saved">none</span>';
+  const matches = Array.isArray(m.matches) ? m.matches : [];
+  return `<tr class="row"><td><div class="bt">${esc(r.blog_title || r.blog_url)}</div><div class="bu"><a href="${esc(r.blog_url)}" target="_blank" rel="noopener">${esc(String(r.blog_url).replace(/^https?:\/\/(www\.)?/, ''))}</a></div><div class="saved" style="margin-top:6px;font-family:var(--sans);font-size:12px">${esc(m.summary || r.reason || '')}</div></td>
+    <td><span class="chip ${r.recommended ? 'ok' : ''}">${r.recommended ? 'Worth refreshing' : 'Not worth it'}</span><div style="margin-top:8px">${scoreCell(r.score, r.recommended)}</div></td>
+    <td class="rank">${pos !== null ? '#' + pos : '—'}<small>${esc(r.keyword || (pos === null ? (r.verdict_reason || '') : ''))}</small></td>
+    <td>${badge(r.verdict)}</td>
+    <td><div class="act">${r.brief_url ? `<a class="btn btn-sm btn-ghost" href="${esc(r.brief_url)}" target="_blank" rel="noopener">Open ${esc(r.brief_action || '')} brief</a>` : ''}${briefBtn('rewrite')}${briefBtn('optimize')}<button class="btn btn-sm btn-ghost" data-bp="${esc(r.blog_url)}" ${rbusy ? 'disabled' : ''}>${rbusy ? '<span class="spin"></span>' : ''}Re-check</button></div></td></tr>
+    <tr class="hidden"><td colspan="5"><div class="detail">
+      <div><h4>${r.recommended ? 'Why it fits' : 'What partly fits'}</h4>${list(m.why_fit)}</div>
+      <div><h4>${r.recommended ? 'Limitations' : 'Why it is not worth refreshing'}</h4>${list(m.why_not_fit)}</div>
+      <div class="d-full"><h4>Strongest addition${r.insertion_section ? ' — in “' + esc(r.insertion_section) + '”' : ''}</h4>${esc(r.what_to_add || '—')}${r.conflict_flag ? '<br><span class="badge unknown">conflict</span> ' + esc(r.conflict_flag) : ''}</div>
+      ${matches.length ? `<div class="d-full"><h4>Report takeaway by takeaway</h4><ul>` + matches.map(x => `<li><span class="fit ${esc(x.fit)}">${esc(x.fit)}</span><b>${esc(x.takeaway_id)}</b> → ${esc(x.section || '?')}${x.section_verified === false ? ' <span class="saved">(heading not found on page)</span>' : ''}: ${esc(x.what_to_add || '')}${x.why ? ' <span class="saved">' + esc(x.why) + '</span>' : ''}</li>`).join('') + '</ul></div>' : ''}
+      <div class="d-full"><h4>Rewrite or optimize</h4>${esc(r.verdict_reason || '—')}<br><span class="saved">checked ${esc(fmtDate(r.evaluated_at))}</span></div>
+    </div></td></tr>`;
+}
+
+async function bpBrief(blogUrl, action) {
+  const bp = bpWebinar(); if (!bp || bpBriefBusy.has(blogUrl)) return;
+  const r = bpResultFor(blogUrl); const title = (r && r.blog_title) || blogUrl;
+  bpBriefBusy.add(blogUrl); renderList();
+  toast('Writing the ' + action + ' brief for "' + title + '". Usually 1 to 3 minutes.');
+  try {
+    const res = await call('refresh-brief', { webinarUrl: bp.url, blogUrl, action }, { timeoutMs: 600000 });
+    if (r) { r.brief_url = res.documentUrl; r.brief_action = action; r.brief_at = new Date().toISOString(); }
+    toast(action[0].toUpperCase() + action.slice(1) + ' brief ready for "' + title + '". Use "Open ' + action + ' brief" on its row.');
+  } catch (e) { toast('Brief failed for "' + title + '": ' + e.message, true); if (e.auth) showConnect(e.message); }
+  finally { bpBriefBusy.delete(blogUrl); renderList(); }
+}
 
 /* ---------- boot ---------- */
 refreshData().catch(e => showConnect(e.message));
