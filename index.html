@@ -262,6 +262,7 @@ details.adv .adv-b{padding:4px 16px 16px;border-top:1px solid var(--border)}
     <div class="toolbar">
       <div class="seg" role="tablist">
         <button class="on" data-tab="webinars" role="tab">Webinars</button>
+        <button data-tab="blueprint" role="tab">Blueprint</button>
         <button data-tab="blogs" role="tab">Blogs</button>
       </div>
       <input type="search" id="inSearch" placeholder="Search titles, guests, headings…" aria-label="Search"/>
@@ -425,7 +426,21 @@ function resultsForWebinar(url) { const rows = (S.data.results || []).filter(r =
 function renderList() {
   const q = S.q; const hit = (s) => !q || String(s || '').toLowerCase().includes(q);
   const wl = $('webinarList'), bt = $('blogTable'), em = $('listEmpty');
+  if (S.tab === 'blueprint') {
+    bt.classList.add('hidden'); wl.classList.remove('hidden');
+    const items = S.data.webinars.filter(w => String(w.status || '') === 'blueprint');
+    $('listCount').textContent = items.length + ' report' + (items.length === 1 ? '' : 's');
+    wl.innerHTML = items.length ? items.map(w => { const rs = resultsForWebinar(w.url); const tk = (S.data.takeaways || []).find(t => t.webinar_url === w.url);
+      return `<li data-url="${esc(w.url)}" class="${S.selected === w.url ? 'sel' : ''}">
+        <div><div class="t">${esc(w.title || w.slug)}</div><div class="m"><span>2026 report</span>${tk ? '<span>' + tk.count + ' takeaways</span>' : '<span>not prepared yet</span>'}</div></div>
+        <div class="r">${rs.length ? '<span class="chip ok">' + rs.filter(r => r.recommended).length + ' of ' + rs.length + ' fit</span>' : ''}</div></li>`; }).join('') : '';
+    wl.querySelectorAll('li').forEach(li => li.onclick = () => selectWebinar(li.dataset.url));
+    em.classList.toggle('hidden', items.length > 0);
+    em.innerHTML = '<b>Blueprint not prepared yet.</b><br>Run the one-time setup: <span class="saved">POST /webhook/refresh-blueprint</span> with your access key, then refresh.';
+    return;
+  }
   if (S.tab === 'webinars') {
+
     bt.classList.add('hidden'); wl.classList.remove('hidden');
     const items = S.data.webinars.filter(w => String(w.status || 'live') === 'live').filter(w => hit(w.title) || hit(w.guest) || hit((w.headings || []).join(' ')))
       .sort((a, b) => String(b.published_date || b.first_seen) > String(a.published_date || a.first_seen) ? 1 : -1);
